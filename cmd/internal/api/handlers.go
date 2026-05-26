@@ -11,8 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gojogourav/engram/cmd/internal/docker"
+	"github.com/gojogourav/engram/cmd/internal/github"
 	"github.com/gojogourav/engram/cmd/internal/grafana"
+	"github.com/gojogourav/engram/cmd/internal/k8s"
+	"github.com/gojogourav/engram/cmd/internal/llm"
+	"github.com/gojogourav/engram/cmd/internal/metrics"
 	"github.com/gojogourav/engram/cmd/internal/store"
+	"github.com/gojogourav/engram/internal/diff"
 )
 
 type WebHookPayload struct {

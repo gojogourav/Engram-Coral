@@ -98,7 +98,7 @@ func (c *Client) LogParser(errorLog string, repoMap string) ([]string, error) {
 		if err == nil {
 			break
 		}
-		log.Printf("⚠️ Gemini attempt %d failed: %v", attempt, err)
+		log.Printf(" Gemini attempt %d failed: %v", attempt, err)
 		if attempt < 3 {
 			time.Sleep(time.Duration(attempt*5) * time.Second)
 		}
