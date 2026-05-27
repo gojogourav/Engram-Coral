@@ -14,10 +14,6 @@ type Client struct {
 	kube *kubernetes.Clientset
 }
 
-func NewClientFromClientSet(clientset *kubernetes.Clientset) *Client {
-	return &Client{kube: clientset}
-}
-
 func NewClient() (*Client, error) {
 	var config *rest.Config
 	var err error
@@ -27,20 +23,18 @@ func NewClient() (*Client, error) {
 		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get k8s config: %w", err)
+			return nil, fmt.Errorf("Failed to get k8 config : %w", err)
 		}
-
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+		return nil, fmt.Errorf("Failed to create kubernetes client : %w", err)
+
 	}
-
 	return &Client{kube: clientset}, nil
-
 }
 
-func NewClientFromClientset(clientset *kubernetes.Clientset) *Client {
+func NewClientFromClientSet(clientset *kubernetes.Clientset) *Client {
 	return &Client{kube: clientset}
 }

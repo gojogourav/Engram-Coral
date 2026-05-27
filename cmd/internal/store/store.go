@@ -75,7 +75,7 @@ func BuildRepoConfig(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create k8s client: %w", err)
 		}
-		cfg.K8sClient = k8s.NewClientFromClientset(clientset)
+		cfg.K8sClient = k8s.NewClientFromClientSet(clientset)
 	}
 
 	if dockerHost != "" {
