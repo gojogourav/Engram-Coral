@@ -83,20 +83,40 @@ func FetchAndExtractLogs(logUrl, githubToken string) (string, error) {
 }
 func FilterBuildErrors(logs string) string {
 	var sb strings.Builder
+	// for _, line := range strings.Split(logs, "\n") {
+	// 	// Keep lines that look like actual errors
+	// 	if strings.Contains(line, "FAIL") ||
+	// 		strings.Contains(line, "Error") ||
+	// 		strings.Contains(line, "error") ||
+	// 		strings.Contains(line, "undefined") ||
+	// 		strings.Contains(line, "cannot") ||
+	// 		strings.Contains(line, "syntax") ||
+	// 		strings.Contains(line, ".go:") ||
+	// 		strings.Contains(line, "--- FAIL") ||
+	// 		strings.Contains(line, "FAIL\t") {
+	// 		sb.WriteString(line + "\n")
+	// 	}
+	// }
+
+	keywords := []string{
+		".go:", "--- FAIL", "FAIL\t",
+		// Python
+		"Traceback (most recent call last):", "File \"", ".py\", line",
+		// JavaScript / TypeScript / Node
+		"ReferenceError:", "TypeError:", ".js:", ".ts:", "ERR!",
+		// Universal (Works for almost anything)
+		"Error", "error", "undefined", "cannot", "syntax", "fatal:",
+	}
+
 	for _, line := range strings.Split(logs, "\n") {
-		// Keep lines that look like actual errors
-		if strings.Contains(line, "FAIL") ||
-			strings.Contains(line, "Error") ||
-			strings.Contains(line, "error") ||
-			strings.Contains(line, "undefined") ||
-			strings.Contains(line, "cannot") ||
-			strings.Contains(line, "syntax") ||
-			strings.Contains(line, ".go:") ||
-			strings.Contains(line, "--- FAIL") ||
-			strings.Contains(line, "FAIL\t") {
-			sb.WriteString(line + "\n")
+		for _, kw := range keywords {
+			if strings.Contains(line, kw) {
+				sb.WriteString(line + "\n")
+				break
+			}
 		}
 	}
+
 	return sb.String()
 }
 

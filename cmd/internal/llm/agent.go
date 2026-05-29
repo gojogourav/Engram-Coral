@@ -17,6 +17,40 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// Generate handles generic prompts
+func (c *Client) Generate(prompt string) (string, error) {
+	ctx := context.Background()
+	genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: c.APIKey})
+	if err != nil {
+		return "", fmt.Errorf("failed to create genai client: %w", err)
+	}
+
+	temp := float32(0.1)
+	config := &genai.GenerateContentConfig{
+		Temperature: &temp,
+	}
+
+	var result *genai.GenerateContentResponse
+	for attempt := 1; attempt <= 3; attempt++ {
+		result, err = genaiClient.Models.GenerateContent(
+			ctx, "gemini-2.5-flash", genai.Text(prompt), config,
+		)
+		if err == nil {
+			break
+		}
+		log.Printf(" Gemini Generate attempt %d failed: %v", attempt, err)
+		if attempt < 3 {
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+		}
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("gemini generation failed after 3 attempts: %w", err)
+	}
+
+	return cleanMarkdownBlocks(result.Text()), nil
+}
+
 func (c *Client) FixGenerator(translatedCommand, errorLog, repoMap string, fileContexts map[string]string) (string, error) {
 	ctx := context.Background()
 	genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: c.APIKey})
@@ -126,7 +160,7 @@ func (c *Client) LogParser(errorLog string, repoMap string) ([]string, error) {
 			strings.HasPrefix(fp, "+\t") ||
 			strings.Contains(fp, "\n") ||
 			strings.ContainsAny(fp, " \t") && !strings.Contains(fp, "/") {
-			log.Printf("⚠️ LogParser returned a non-path entry, skipping: %q", fp)
+			log.Printf(" LogParser returned a non-path entry, skipping: %q", fp)
 			continue
 		}
 		valid = append(valid, fp)

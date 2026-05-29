@@ -8,7 +8,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-type VoxDeployStats struct {
+type EngramStats struct {
 	WebhooksTotal  float64 `json:"webhooks_total"`
 	FixesGenerated float64 `json:"fixes_generated"`
 	PRsOpened      float64 `json:"prs_opened"`
@@ -32,8 +32,8 @@ func getHistogramSum(h prometheus.Histogram) (float64, float64) {
 	return hist.GetSampleSum(), float64(hist.GetSampleCount())
 }
 
-func (c *Client) GetDashboardStats() (*VoxDeployStats, error) {
-	stats := &VoxDeployStats{}
+func (c *Client) GetDashboardStats() (*EngramStats, error) {
+	stats := &EngramStats{}
 
 	// Read directly from in-memory Prometheus registry
 	stats.WebhooksTotal = getCounterValue(metrics.WebHookRecieved)

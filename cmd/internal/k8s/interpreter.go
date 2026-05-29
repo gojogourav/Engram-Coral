@@ -238,7 +238,7 @@ type DeploymentInfo struct {
 }
 
 func (c *Client) findDeploymentNamespace(ctx context.Context, name string) (string, error) {
-	namespaces := []string{"default", "voxdeploy", "monitoring", "kube-system"}
+	namespaces := []string{"default", "engram", "monitoring", "kube-system"}
 	for _, ns := range namespaces {
 		_, err := c.kube.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
 		if err == nil {

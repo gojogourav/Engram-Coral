@@ -118,15 +118,34 @@ func (g *Gateway) processFailedBuild(payload WebHookPayload, repoCfg *store.Repo
 	branch := payload.WorkflowRun.HeadBranch
 	token := repoCfg.GithubToken
 
-	log.Println("Starting log download...")
-	combinedLogs, err := github.FetchAndExtractLogs(payload.WorkflowRun.LogsURL, token)
+	// log.Println("Starting log download...")
+	// combinedLogs, err := github.FetchAndExtractLogs(payload.WorkflowRun.LogsURL, token)
+	// if err != nil {
+	// 	log.Printf("Failed to extract logs: %v", err)
+	// 	metrics.FixFailed.Inc()
+	// 	return
+	// }
+	// filteredLogs := github.FilterBuildErrors(combinedLogs)
+	// log.Printf("Filtered logs (%d chars):\n%s", len(filteredLogs), filteredLogs[:min(len(filteredLogs), 300)])
+
+	log.Println("Querying Coral telemetry for pinpoint failure data...")
+
+	// We already have the run ID straight from the GitHub webhook payload!
+	failedJobs, err := GetWorkflowFailures(owner, repo, payload.WorkflowRun.ID)
 	if err != nil {
-		log.Printf("Failed to extract logs: %v", err)
+		log.Printf("Coral telemetry query failed: %v", err)
 		metrics.FixFailed.Inc()
 		return
 	}
-	filteredLogs := github.FilterBuildErrors(combinedLogs)
-	log.Printf("Filtered logs (%d chars):\n%s", len(filteredLogs), filteredLogs[:min(len(filteredLogs), 300)])
+
+	var failureSummary strings.Builder
+	failureSummary.WriteString("The CI pipeline failed with the following matrix breakdown:\n")
+	for _, job := range failedJobs {
+		failureSummary.WriteString(fmt.Sprintf("- Job '%s' crashed at step: '%s'\n", job.Name, job.FailedStepNames))
+	}
+
+	filteredLogs := failureSummary.String()
+	log.Printf("AI Context Generated:\n%s", filteredLogs)
 
 	repoTree, err := github.FileStructure(owner, repo, branch, token, g.HTTPClient)
 	if err != nil {
@@ -194,7 +213,7 @@ func (g *Gateway) processFailedBuild(payload WebHookPayload, repoCfg *store.Repo
 	log.Println(" AI is generating the code fix...")
 
 	aiStart := time.Now()
-	gitDiff, err := g.LLMClient.FixGenerator("Fix the bug causing the build failure.", combinedLogs, repoTree, fileContext)
+	gitDiff, err := g.LLMClient.FixGenerator("Fix the bug causing the build failure.", filteredLogs, repoTree, fileContext)
 	metrics.AILatency.Observe(time.Since(aiStart).Seconds())
 	if err != nil {
 		log.Printf("❌ AI failed to generate fix: %v", err)

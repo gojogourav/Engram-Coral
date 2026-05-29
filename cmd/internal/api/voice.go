@@ -100,6 +100,7 @@ func (g *Gateway) transcribeWithGroq(audioBase64, locale string) (transcript, de
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
+	//TODO: Understand this important part
 	filePart, err := writer.CreateFormFile("file", "audio.m4a")
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create form file: %w", err)

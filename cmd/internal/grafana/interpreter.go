@@ -11,9 +11,9 @@ func (c *Client) InterpretCommand(translatedText string) (string, error) {
 	case contains(text, "summary", "overview", "status", "how are we doing"):
 		return c.GetMetricSummary()
 	case contains(text, "webhooks", "ci failures", "builds failed"):
-		return c.querySingle("voxdeploy_webhooks_received_total", "Total CI failures caught")
+		return c.querySingle("engram_webhooks_received_total", "Total CI failures caught")
 	case contains(text, "prs", "pull requests"):
-		return c.querySingle("voxdeploy_prs_opened_total", "Total PRs opened")
+		return c.querySingle("engram_prs_opened_total", "Total PRs opened")
 	case contains(text, "success rate"):
 		stats, err := c.GetDashboardStats()
 		if err != nil {
@@ -27,7 +27,7 @@ func (c *Client) InterpretCommand(translatedText string) (string, error) {
 		}
 		return fmt.Sprintf("Average AI latency: %.1fs, p95: %.1fs", stats.AvgAILatency, stats.P95AILatency), nil
 	case contains(text, "errors", "failures", "failed"):
-		return c.querySingle("voxdeploy_fix_failed_total", "Total pipeline failures")
+		return c.querySingle("Engram_fix_failed_total", "Total pipeline failures")
 	default:
 		return "", fmt.Errorf("could not interpret grafana command: %q", translatedText)
 	}

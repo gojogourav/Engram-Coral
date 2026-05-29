@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/gojogourav/engram/cmd/internal/store"
@@ -19,18 +18,18 @@ type RegisterRequest struct {
 }
 
 func (g *Gateway) RegisterRepoHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "cannot read body", http.StatusBadRequest)
-		return
-	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+	// body, err := io.ReadAll(r.Body)
+	// if err != nil {
+	// 	http.Error(w, "cannot read body", http.StatusBadRequest)
+	// 	return
+	// }
 
 	var req RegisterRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json payload", http.StatusBadRequest)
 		return
 	}
-
 	if req.Repo == "" || req.GithubToken == "" || req.WebhookSecret == "" {
 		http.Error(w, "repo, github_token and webhook_secret are required", http.StatusBadRequest)
 		return
