@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Home,
   LayoutDashboard,
   Eye,
   Settings,
@@ -23,10 +24,14 @@ export default function ClientLayout({
   const [online, setOnline] = useState(false);
   const pathname = usePathname();
 
+  // Simple check to see if we are on the landing page
+  const isHome = pathname === "/";
+
   useEffect(() => {
     const check = async () => {
       try {
-        setOnline((await fetch("http://127.0.0.1:8080/health")).ok);
+        const res = await fetch("http://127.0.0.1:8080/health");
+        setOnline(res.ok);
       } catch {
         setOnline(false);
       }
@@ -37,7 +42,12 @@ export default function ClientLayout({
   }, []);
 
   const navItems = [
-    { name: "Mission Control", href: "/", icon: LayoutDashboard },
+    { name: "Home", href: "/", icon: Home },
+    {
+      name: "Mission Control",
+      href: "/mission-control",
+      icon: LayoutDashboard,
+    },
     { name: "Chat", href: "/chat", icon: MessageSquare },
     { name: "Observability", href: "/observability", icon: Eye },
     { name: "War Room", href: "/war-room", icon: Siren },
@@ -101,6 +111,7 @@ export default function ClientLayout({
           font-size: 14px;
           font-weight: 500;
           font-family: inherit;
+          text-decoration: none;
         }
         .layout-ws-btn:hover { background: #efefed; }
 
@@ -137,7 +148,7 @@ export default function ClientLayout({
         }
 
         .layout-nav-item:hover          { background: #efefed; color: #37352f; }
-        .layout-nav-item.active         { background: #efefed; color: #37352f; }
+        .layout-nav-item.active          { background: #efefed; color: #37352f; }
         .layout-nav-item.active svg     { color: #37352f; }
 
         /* Section label */
@@ -256,55 +267,59 @@ export default function ClientLayout({
       `}</style>
 
       <div className="layout-root">
-        {/* Sidebar */}
-        <aside className={`layout-sidebar ${sidebarOpen ? "open" : "closed"}`}>
-          <div className="layout-sidebar-inner">
-            {/* Workspace name */}
-            <div className="layout-ws-hdr">
-              <button className="layout-ws-btn">
-                <div className="layout-ws-logo">E</div>
-                <span>Engram Workspace</span>
-              </button>
-            </div>
-
-            {/* Navigation */}
-            <nav className="layout-nav">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`layout-nav-item ${pathname === item.href ? "active" : ""}`}
-                >
-                  <item.icon size={15} strokeWidth={1.8} />
-                  {item.name}
+        {/* Only render sidebar if NOT on the home page */}
+        {!isHome && (
+          <aside
+            className={`layout-sidebar ${sidebarOpen ? "open" : "closed"}`}
+          >
+            <div className="layout-sidebar-inner">
+              <div className="layout-ws-hdr">
+                <Link href="/" className="layout-ws-btn">
+                  <div className="layout-ws-logo">E</div>
+                  <span>Engram Workspace</span>
                 </Link>
-              ))}
-            </nav>
+              </div>
 
-            {/* Active deployments */}
-            <div className="layout-section-label">Active Deployments</div>
-            <div className="layout-deploy-item">
-              <div className="layout-deploy-dot" />
-              engram-test-repo
+              <nav className="layout-nav">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`layout-nav-item ${
+                      pathname === item.href ? "active" : ""
+                    }`}
+                  >
+                    <item.icon size={15} strokeWidth={1.8} />
+                    {item.name}
+                  </Link>
+                ))}
+              </nav>
+
+              <div className="layout-section-label">Active Deployments</div>
+              <div className="layout-deploy-item">
+                <div className="layout-deploy-dot" />
+                engram-test-repo
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        )}
 
-        {/* Main */}
         <div className="layout-main">
-          {/* Topbar */}
           <header className="layout-topbar">
-            <button
-              className="layout-topbar-toggle"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose size={15} strokeWidth={1.5} />
-              ) : (
-                <PanelLeftOpen size={15} strokeWidth={1.5} />
-              )}
-            </button>
+            {/* Hide toggle button if on home page */}
+            {!isHome && (
+              <button
+                className="layout-topbar-toggle"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                {sidebarOpen ? (
+                  <PanelLeftClose size={15} strokeWidth={1.5} />
+                ) : (
+                  <PanelLeftOpen size={15} strokeWidth={1.5} />
+                )}
+              </button>
+            )}
 
             <div className="layout-breadcrumb">
               <span style={{ cursor: "pointer" }} className="hidden sm:inline">
@@ -324,7 +339,6 @@ export default function ClientLayout({
             </button>
           </header>
 
-          {/* Page canvas */}
           <main className="layout-canvas">{children}</main>
         </div>
       </div>
