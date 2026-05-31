@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 
 	"github.com/gojogourav/engram/cmd/internal/api"
 	"github.com/gojogourav/engram/cmd/internal/docker"
 	"github.com/gojogourav/engram/cmd/internal/grafana"
+	"github.com/gojogourav/engram/cmd/internal/incident"
 	"github.com/gojogourav/engram/cmd/internal/k8s"
 	"github.com/gojogourav/engram/cmd/internal/llm"
 	"github.com/gojogourav/engram/cmd/internal/store"
@@ -62,6 +64,29 @@ func autoRegisterWebhook(owner, repo, token, secret, webhookURL string) error {
 	}
 
 	return fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func TelemetryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		api.TotalRequests.Add(1)
+
+		sw := &statusWriter{ResponseWriter: w, status: 200}
+		next.ServeHTTP(sw, r)
+
+		if sw.status >= 500 {
+			api.Error5xxCount.Add(1)
+		}
+	})
 }
 
 func main() {
@@ -140,6 +165,74 @@ func main() {
 	// 	log.Fatalf("server failed: %v", err)
 	// }
 
+	mux.HandleFunc("/api/agent/chat", gateway.AgentChatHandler)
+
+	// Incident API
+	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		// Prometheus counters (resets on restart)
+		prometheusStats, err := grafanaClient.GetDashboardStats()
+		if err != nil {
+			http.Error(w, "Failed to read metrics", http.StatusInternalServerError)
+			return
+		}
+
+		// Incident store (persists in memory during session)
+		allIncidents := incident.Global.List()
+		healed := 0
+		failed := 0
+		inProgress := 0
+		for _, inc := range allIncidents {
+			switch inc.Stage {
+			case "healed":
+				healed++
+			case "failed":
+				failed++
+			default:
+				inProgress++
+			}
+		}
+
+		// Use whichever is higher — store or prometheus
+		totalWebhooks := math.Max(prometheusStats.WebhooksTotal, float64(len(allIncidents)))
+		totalPRs := math.Max(prometheusStats.PRsOpened, float64(healed))
+		totalFixes := math.Max(prometheusStats.FixesGenerated, float64(healed))
+
+		successRate := 0.0
+		if totalWebhooks > 0 {
+			successRate = (totalPRs / totalWebhooks) * 100
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"webhooks_total":  totalWebhooks,
+			"fixes_generated": totalFixes,
+			"prs_opened":      totalPRs,
+			"fixes_failed":    math.Max(prometheusStats.FixesFailed, float64(failed)),
+			"success_rate":    successRate,
+			"avg_ai_latency":  prometheusStats.AvgAILatency,
+			"diff_errors":     prometheusStats.DiffErrors,
+			"in_progress":     inProgress,
+		})
+	})
+
+	mux.HandleFunc("/api/incidents", gateway.ListIncidentsHandler)
+	mux.HandleFunc("/api/state", gateway.GetStateHandler)
+	mux.HandleFunc("/api/approve", gateway.ApproveHandler)
+
+	// CORS middleware
+	// CORS middleware (Bulletproof)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, ngrok-skip-browser-warning")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
 	fmt.Println("Spinning ngrok tunnel")
 	ctx := context.Background()
 	listner, err := ngrok.Listen(ctx,
@@ -160,8 +253,15 @@ func main() {
 		log.Printf("Failed to auto-register webhook: %v", err)
 	}
 
-	// 2. Serve your exact same HTTP multiplexer
-	if err := http.Serve(listner, mux); err != nil {
+	go func() {
+		log.Println(" Local API for Next.js listening on http://localhost:8080")
+		trackedHandler := TelemetryMiddleware(handler)
+		if err := http.ListenAndServe(":8080", trackedHandler); err != nil {
+			log.Fatalf("Local server crashed: %v", err)
+		}
+	}()
+
+	if err := http.Serve(listner, handler); err != nil {
 		log.Fatalf("Server crashed: %v", err)
 	}
 }

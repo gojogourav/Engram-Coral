@@ -127,8 +127,9 @@ type GitTreeResponse struct {
 	} `json:"tree"`
 }
 
-func FileStructure(owner, repo, branch, token string, client *http.Client) (string, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1", owner, repo, branch)
+func FileStructure(owner, repo, sha, token string, client *http.Client) (string, error) {
+	// Note: We use the exact commit SHA instead of the branch to be bulletproof
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1", owner, repo, sha)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -142,7 +143,6 @@ func FileStructure(owner, repo, branch, token string, client *http.Client) (stri
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch tree: %w", err)
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -154,12 +154,10 @@ func FileStructure(owner, repo, branch, token string, client *http.Client) (stri
 	}
 
 	var validPaths []string
-
 	for _, item := range treeResp.Tree {
 		if item.Type != "blob" {
 			continue
 		}
-
 		if strings.HasPrefix(item.Path, "node_modules/") ||
 			strings.HasPrefix(item.Path, "vendor/") ||
 			strings.HasPrefix(item.Path, ".git/") ||
@@ -167,7 +165,6 @@ func FileStructure(owner, repo, branch, token string, client *http.Client) (stri
 			strings.HasPrefix(item.Path, "build/") {
 			continue
 		}
-
 		validPaths = append(validPaths, item.Path)
 	}
 

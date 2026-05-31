@@ -1,0 +1,24 @@
+name: engram_audit
+version: 1.0.0
+dsl_version: 3
+backend: file
+test_queries:
+  - SELECT * FROM engram_audit.engram_audit LIMIT 1
+tables:
+  - name: engram_audit
+    description: Local history of AI-generated SRE fixes
+    format: jsonl
+    source:
+      location: "file:///home/gourav/Music/Engram/"
+      glob: "engram_audit.jsonl"
+    columns:
+      - name: incident_id
+        type: Utf8
+      - name: repo
+        type: Utf8
+      - name: error_signature
+        type: Utf8
+      - name: applied_diff
+        type: Utf8
+      - name: timestamp
+        type: Utf8
